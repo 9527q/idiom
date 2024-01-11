@@ -46,7 +46,6 @@ INPUT_LIMIT_LIST: list[str] = [  # 限制
     # "2 c0 p2",  # 在第二个位置不能是 2 声
     # "- c1 p4",  # 第四个位置没有声母
     # 1
-    "y c0"
     # 2
 ]
 INPUT_LIMIT_TAG_MUSIC_LIST = list("01234")  # 限制中表示声调的，0 代表轻声
