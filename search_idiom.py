@@ -5,6 +5,8 @@
 最后会输出过滤后的成语，以及各个位置的可选汉字、声母、韵母、声调，按照频次倒序
 
 打开调试模式(DEBUG = True)可以获取更多日志
+
+目前所有 u、ü 相关的过滤结果不保证正确，尽量不要使用
 """
 import json
 from collections import defaultdict
@@ -42,8 +44,8 @@ INPUT_LIMIT_LIST: list[str] = [  # 限制
     # "2 c1 p2",  # 在第二个位置是二声
     # "2 c0 p2",  # 在第二个位置不能是 2 声
     # "- c1 p4",  # 第四个位置没有声母
-    # 第一次
-    # 第二次
+    # 1
+    # 2
 ]
 INPUT_LIMIT_TAG_MUSIC_LIST = list("01234")  # 限制中表示声调的，0 代表轻声
 INPUT_LIMIT_TAG_COUNT = "c"  # 限制中表示数量
