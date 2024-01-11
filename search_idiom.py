@@ -9,6 +9,7 @@
 目前所有 u、ü 相关的过滤结果不保证正确，尽量不要使用
 """
 import json
+import logging
 from collections import defaultdict
 from pathlib import Path
 from typing import Callable
@@ -45,6 +46,7 @@ INPUT_LIMIT_LIST: list[str] = [  # 限制
     # "2 c0 p2",  # 在第二个位置不能是 2 声
     # "- c1 p4",  # 第四个位置没有声母
     # 1
+    "y c0"
     # 2
 ]
 INPUT_LIMIT_TAG_MUSIC_LIST = list("01234")  # 限制中表示声调的，0 代表轻声
@@ -61,15 +63,25 @@ OUTPUT_IDIOM_MAX_COUNT = 50  # 输出备选成语时，最多这么多个
 OUTPUT_WORD_MAX_COUNT = 50  # 输出某位置的备选汉字时，最多这么多个
 
 
-def log(msg):
-    if DEBUG:
-        print(msg)
+def log(level: int, *args, **kwargs):
+    if level < logging.INFO and not DEBUG:
+        return
+
+    print(*args, **kwargs)
+
+
+def log_info(*args, **kwargs):
+    log(logging.INFO, *args, **kwargs)
+
+
+def log_debug(*args, **kwargs):
+    log(logging.DEBUG, *args, **kwargs)
 
 
 def loads_idiom() -> list[dict]:
-    print("开始加载全量成语数据...")
-    print(f"配置的成语最少字数是：{IDIOM_MIN_LENGTH}")
-    print(f"配置的成语最多字数是：{IDIOM_MAX_LENGTH}")
+    log_debug("开始加载全量成语数据...")
+    log_debug(f"配置的成语最少字数是：{IDIOM_MIN_LENGTH}")
+    log_debug(f"配置的成语最多字数是：{IDIOM_MAX_LENGTH}")
 
     current_directory = Path(__file__).resolve().parent
     file_path = current_directory / IDIOM_JSON_FILE_NAME
@@ -77,32 +89,32 @@ def loads_idiom() -> list[dict]:
     with open(file_path, "r") as f:
         origin_idiom_list: list[dict] = json.load(f)
         if not isinstance(origin_idiom_list, list):
-            log("origin_idiom_list 数据类型不对")
+            log_debug("origin_idiom_list 数据类型不对")
             origin_idiom_list = []
 
     word_set = set()
     idiom_list = []
     for i, idiom in enumerate(origin_idiom_list):
         if not isinstance(idiom, dict):
-            log(f"第 {i} 个成语数据类型不对")
+            log_debug(f"第 {i} 个成语数据类型不对")
             continue
         if not (word := idiom.get(IDIOM_JSON_WORD_KEY)):
-            log(f"第 {i} 个成语没有词语内容")
+            log_debug(f"第 {i} 个成语没有词语内容")
             continue
         if not isinstance(word, str):
-            log(f"第 {i} 个成语的词语 {word} 不对")
+            log_debug(f"第 {i} 个成语的词语 {word} 不对")
             continue
         if not IDIOM_MIN_LENGTH <= len(word) <= IDIOM_MAX_LENGTH:
             continue
         if word in word_set:
-            log(f"第 {i} 个成语的词语 {word} 重复了")
+            log_debug(f"第 {i} 个成语的词语 {word} 重复了")
             continue
         if not (pinyin_total := idiom.get(IDIOM_JSON_PINYIN_KEY)):
-            log(f"第 {i} 个成语的拼音 {pinyin_total} 不对")
+            log_debug(f"第 {i} 个成语的拼音 {pinyin_total} 不对")
             continue
         pinyin_list = pinyin_total.split()
         if not IDIOM_MIN_LENGTH <= len(pinyin_list) <= IDIOM_MAX_LENGTH:
-            log(f"成语 {word} 的拼音 {pinyin_total} 不对")
+            log_debug(f"成语 {word} 的拼音 {pinyin_total} 不对")
             continue
 
         py_left_list = []
@@ -130,7 +142,7 @@ def loads_idiom() -> list[dict]:
                 ):
                     py_right_wait_replace = py_right[1]
                 else:
-                    log(f"成语 {word} 的拼音 {pinyin_total} 里面的 {pinyin} 不对")
+                    log_debug(f"成语 {word} 的拼音 {pinyin_total} 里面的 {pinyin} 不对")
                     break
                 py_right_to_replace, music = PY_RIGHT_WITH_MUSIC_2_RIGHT_MUSIC[
                     py_right_wait_replace
@@ -139,7 +151,7 @@ def loads_idiom() -> list[dict]:
             if py_right == "ue":
                 py_right = "üe"
             if py_right not in PY_ALL_RIGHT_SET:
-                log(f"成语 {word} 的拼音 {pinyin_total} 里面的 {py_right} 不对")
+                log_debug(f"成语 {word} 的拼音 {pinyin_total} 里面的 {py_right} 不对")
                 break
 
             py_left_list.append(py_left)
@@ -159,12 +171,12 @@ def loads_idiom() -> list[dict]:
             }
         )
 
-    print(f"全量成语数据加载完毕，总数: {len(idiom_list)}")
+    log_debug(f"全量成语数据加载完毕，总数: {len(idiom_list)}")
     return idiom_list
 
 
 def loads_limit() -> list[str]:
-    print("开始解析限制...")
+    log_debug("开始解析限制...")
     limit_list = []
     for input_limit in INPUT_LIMIT_LIST:
         input_limit = input_limit.strip()
@@ -172,40 +184,40 @@ def loads_limit() -> list[str]:
             continue
         tag_list = input_limit.split()
         if not 2 <= len(tag_list) <= 3:
-            log(f"limit {input_limit} 中的参数数量不对")
+            log_debug(f"limit {input_limit} 中的参数数量不对")
             continue
         if not (val := tag_list[0]):
-            log(f"limit {input_limit} 值是空的")
+            log_debug(f"limit {input_limit} 值是空的")
             continue
         if val.isdigit() and val not in INPUT_LIMIT_TAG_MUSIC_LIST:
-            log(f"limit {input_limit} 值是非法音调")
+            log_debug(f"limit {input_limit} 值是非法音调")
             continue
         if len(val) > 1 and val not in PY_ALL_LEFT_SET and val not in PY_ALL_RIGHT_SET:
-            log(f"limit {input_limit} 值是非法声母/韵母")
+            log_debug(f"limit {input_limit} 值是非法声母/韵母")
             continue
         if not (count_tag := tag_list[1]):
-            log(f"limit {input_limit} 数量标记是空的")
+            log_debug(f"limit {input_limit} 数量标记是空的")
             continue
         if not count_tag.startswith(INPUT_LIMIT_TAG_COUNT):
-            log(f"limit {input_limit} 数量标记开头不对")
+            log_debug(f"limit {input_limit} 数量标记开头不对")
             continue
         if count_tag[1:] not in INPUT_LIMIT_TAG_COUNT_VAL_LIST:
-            log(f"limit {input_limit} 数量值不对")
+            log_debug(f"limit {input_limit} 数量值不对")
             continue
         if len(tag_list) == 3:
             if not (posi_tag := tag_list[2]):
-                log(f"limit {input_limit} 位置标记是空的")
+                log_debug(f"limit {input_limit} 位置标记是空的")
                 continue
             if not posi_tag.startswith(INPUT_LIMIT_TAG_POSITION):
-                log(f"limit {input_limit} 位置标记开头不对")
+                log_debug(f"limit {input_limit} 位置标记开头不对")
                 continue
             if posi_tag[1:] not in INPUT_LIMIT_TAG_POSITION_VAL_LIST:
-                log(f"limit {input_limit} 位置值不对")
+                log_debug(f"limit {input_limit} 位置值不对")
                 continue
 
         limit_list.append(input_limit)
 
-    print(f"共解析到 {len(limit_list)} 条限制")
+    log_debug(f"共解析到 {len(limit_list)} 条限制")
     return limit_list
 
 
@@ -239,7 +251,7 @@ def limit_2_check_func(limit: str) -> Callable[[dict], bool]:
     else:
         posi_slice = slice(None, None)
 
-    print(
+    log_debug(
         f"【{limit}】生成过滤函数：{count_min=}, {count_max=}, {val=}, {idiom_key=}, {posi_slice=}"
     )
     return (
@@ -250,13 +262,13 @@ def limit_2_check_func(limit: str) -> Callable[[dict], bool]:
 
 
 def output_result_idiom_list(idiom_list: list[dict]):
-    print(f"剩余可选成语({len(idiom_list)}个): ")
+    log_info(f"剩余可选成语({len(idiom_list)}个): ")
     for i in range(0, min(len(idiom_list), OUTPUT_IDIOM_MAX_COUNT), 4):
-        print("    ", end="")
+        log_info("    ", end="")
         for idiom in idiom_list[i : min(i + 4, OUTPUT_IDIOM_MAX_COUNT)]:
-            print_msg = f"{idiom['word']}  {idiom['pinyin']}"
-            print(f"{print_msg:<30}", end="")
-        print()
+            idiom_show = f"{idiom['word']}  {idiom['pinyin']}"
+            log_info(f"{idiom_show:<30}", end="")
+        log_info()
 
     posi_choice_count_list = [
         {
@@ -285,20 +297,20 @@ def output_result_idiom_list(idiom_list: list[dict]):
         ("声调", "py_music_count", "", -1),
     ]
     for posi, posi_choice in enumerate(posi_choice_count_list):
-        print(f"位置 {posi + 1} 可选（按频次倒序）: ")
+        log_info(f"位置 {posi + 1} 可选（按频次倒序）: ")
         for name, key, join_str, count_limit in output_control_list:
             val_count_sorted = sorted(posi_choice[key].items(), key=lambda i: -i[1])
             if len(val_count_sorted) > 2:
                 max_count_val_msg = f"，最高频次为 {val_count_sorted[0][1]}"
             else:
                 max_count_val_msg = ""
-            print(
+            log_info(
                 f"    {name}(共 {len(posi_choice[key])} 个{max_count_val_msg}): ", end=""
             )
 
             if count_limit != -1:
                 val_count_sorted = val_count_sorted[:count_limit]
-            print(join_str.join(str(i[0]) for i in val_count_sorted))
+            log_info(join_str.join(str(i[0]) for i in val_count_sorted))
 
 
 def main():
