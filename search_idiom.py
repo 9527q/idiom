@@ -60,7 +60,8 @@ INPUT_LIMIT_TAG_POSITION_VAL_LIST = [
     str(p) for p in range(1, IDIOM_MAX_LENGTH + 1)
 ]  # 限制中表示位置的值
 OUTPUT_IDIOM_MAX_COUNT = 50  # 输出备选成语时，最多这么多个
-OUTPUT_WORD_MAX_COUNT = 50  # 输出某位置的备选汉字时，最多这么多个
+OUTPUT_IDIOM_COUNT_PER_LINE = 4  # 输出备选成语时，每行有几个
+OUTPUT_POSITION_CHOICE_MAX_COUNT = 20  # 输出某位置的备选结果时，最多这么多个
 
 
 def log(level: int, *args, **kwargs):
@@ -171,6 +172,9 @@ def loads_idiom() -> list[dict]:
             }
         )
 
+    if max_py_length_idiom := max(idiom_list, key=lambda i: len(i["pinyin"])):
+        log_debug(f"最长的拼音为 {max_py_length_idiom['pinyin']}")
+
     log_debug(f"全量成语数据加载完毕，总数: {len(idiom_list)}")
     return idiom_list
 
@@ -263,9 +267,13 @@ def limit_2_check_func(limit: str) -> Callable[[dict], bool]:
 
 def output_result_idiom_list(idiom_list: list[dict]):
     log_info(f"剩余可选成语({len(idiom_list)}个): ")
-    for i in range(0, min(len(idiom_list), OUTPUT_IDIOM_MAX_COUNT), 4):
+    for i in range(
+        0, min(len(idiom_list), OUTPUT_IDIOM_MAX_COUNT), OUTPUT_IDIOM_COUNT_PER_LINE
+    ):
         log_info("    ", end="")
-        for idiom in idiom_list[i : min(i + 4, OUTPUT_IDIOM_MAX_COUNT)]:
+        for idiom in idiom_list[
+            i : min(i + OUTPUT_IDIOM_COUNT_PER_LINE, OUTPUT_IDIOM_MAX_COUNT)
+        ]:
             idiom_show = f"{idiom['word']}  {idiom['pinyin']}"
             log_info(f"{idiom_show:<30}", end="")
         log_info()
@@ -290,15 +298,15 @@ def output_result_idiom_list(idiom_list: list[dict]):
             for posi in range(IDIOM_MAX_LENGTH):
                 posi_choice_count_list[posi][choice_key][idiom[idiom_key][posi]] += 1
 
-    output_control_list: list[tuple[str, str, str, int]] = [
-        ("汉字", "char_count", "", OUTPUT_WORD_MAX_COUNT),
-        ("声母", "py_left_count", " ", -1),
-        ("韵母", "py_right_count", " ", -1),
-        ("声调", "py_music_count", "", -1),
+    output_control_list: list[tuple[str, str, str]] = [
+        ("汉字", "char_count", ""),
+        ("声母", "py_left_count", " "),
+        ("韵母", "py_right_count", " "),
+        ("声调", "py_music_count", ""),
     ]
     for posi, posi_choice in enumerate(posi_choice_count_list):
         log_info(f"位置 {posi + 1} 可选（按频次倒序）: ")
-        for name, key, join_str, count_limit in output_control_list:
+        for name, key, join_str in output_control_list:
             val_count_sorted = sorted(posi_choice[key].items(), key=lambda i: -i[1])
             if len(val_count_sorted) > 2:
                 max_count_val_msg = f"，最高频次为 {val_count_sorted[0][1]}"
@@ -308,8 +316,7 @@ def output_result_idiom_list(idiom_list: list[dict]):
                 f"    {name}(共 {len(posi_choice[key])} 个{max_count_val_msg}): ", end=""
             )
 
-            if count_limit != -1:
-                val_count_sorted = val_count_sorted[:count_limit]
+            val_count_sorted = val_count_sorted[:OUTPUT_POSITION_CHOICE_MAX_COUNT]
             log_info(join_str.join(str(i[0]) for i in val_count_sorted))
 
 
